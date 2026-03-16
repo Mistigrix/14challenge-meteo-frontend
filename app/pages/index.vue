@@ -1,51 +1,52 @@
 <template>
   <div class="home-page">
 
+    <div v-if="isLoading" class="loader">
+      <span>Chargement...</span>
+    </div>
+
     <div class="search-wrapper">
       <div class="search-box">
-        <input
-          v-model="searchText"
-          type="text"
-          placeholder="Rechercher une ville..."
-          class="search-input"
-          :style="{ color: textMain, background: glassBg, borderColor: glassBorder }"
-          @focus="showSearch = true"
-        />
+        <input v-model="searchText" type="text" placeholder="Rechercher une ville..." class="search-input"
+          :style="{ color: textMain, background: glassBg, borderColor: glassBorder }" @focus="showSearch = true" />
         <div v-if="showSearch && searchText" class="search-dropdown"
           :style="{ background: glassBgSolid, borderColor: glassBorder }">
-          <div v-if="filteredCities.length === 0" class="search-empty" :style="{ color: textSub }">
+
+          <div v-if="filteredCities.length === 0 && !showApiSearch"
+            class="search-empty" :style="{ color: textSub }">
             Aucun résultat
           </div>
-          <div
-            v-for="city in filteredCities"
-            :key="city.name"
-            class="search-item"
-            :style="{ borderColor: glassBorder }"
-            @click="selectCity(city)">
-            <span class="search-city" :style="{ color: textMain }">{{ city.name }}</span>
-            <span class="search-country" :style="{ color: textSub }">{{ city.country }}</span>
+
+          <div v-for="c in filteredCities" :key="c.name" class="search-item"
+            :style="{ borderColor: glassBorder }" @click="selectCity(c)">
+            <span class="search-city" :style="{ color: textMain }">{{ c.name }}</span>
+            <span class="search-country" :style="{ color: textSub }">{{ c.country }}</span>
           </div>
+
+          <div v-if="showApiSearch" class="search-item search-api"
+            :style="{ borderColor: glassBorder }" @click="selectCity(searchText)">
+            <span class="search-city" :style="{ color: textMain }">🔍 Rechercher "{{ searchText }}"</span>
+            <span class="search-country" :style="{ color: textSub }">via API</span>
+          </div>
+
         </div>
       </div>
     </div>
 
     <div class="main-weather">
       <div class="weather-left">
-        <p class="city-country" :style="{ color: textSub }">{{ selectedCity.country }}</p>
-        <h1 class="city-name" :style="{ color: textMain }">{{ selectedCity.name }}</h1>
+        <p class="city-country" :style="{ color: textSub }">{{ city.country }}</p>
+        <h1 class="city-name" :style="{ color: textMain }">{{ city.name }}</h1>
         <p class="weather-label" :style="{ color: textSub }">{{ currentWeather.label }}</p>
         <div class="temp-display">
-          <span class="temp-number" :style="{ color: textMain }">{{ selectedCity.temp }}</span>
+          <span class="temp-number" :style="{ color: textMain }">{{ city.temp }}</span>
           <span class="temp-unit" :style="{ color: textSub }">°C</span>
         </div>
-        <p class="feels-like" :style="{ color: textSub }">Ressenti {{ selectedCity.feels }}°C</p>
+        <p class="feels-like" :style="{ color: textSub }">Ressenti {{ city.feels }}°C</p>
       </div>
 
       <div class="weather-right">
-        <div
-          v-for="(item, i) in quickInfos"
-          :key="i"
-          class="glass-card info-card"
+        <div v-for="(item, i) in quickInfos" :key="i" class="glass-card info-card"
           :style="{ background: glassBg, borderColor: glassBorder }">
           <span class="info-icon">{{ item.icon }}</span>
           <p class="info-value" :style="{ color: textMain }">{{ item.value }}</p>
@@ -59,8 +60,9 @@
       <div class="forecast-row">
         <div v-for="(day, i) in nextDays" :key="i" class="forecast-day">
           <p class="forecast-day-name" :style="{ color: textSub }">{{ day }}</p>
-          <span class="forecast-icon">{{ weatherTypes[selectedCity.forecastW[i]]?.icon }}</span>
-          <p class="forecast-temp" :style="{ color: textMain }">{{ selectedCity.forecast[i] }}°</p>
+          <!-- <span class="forecast-icon">{{ weatherTypes[city.forecastW[i]]?.icon }}</span> -->
+           <span class="forecast-icon">{{ weatherTypes[city.forecastW[i] ?? 'sunny']?.icon }}</span>
+          <p class="forecast-temp" :style="{ color: textMain }">{{ city.forecast[i] }}°</p>
         </div>
       </div>
     </div>
@@ -68,17 +70,13 @@
     <div class="other-cities">
       <p class="section-label" :style="{ color: textSub }">Autres villes</p>
       <div class="cities-scroll">
-        <div
-          v-for="city in otherCities"
-          :key="city.name"
-          class="glass-card city-card"
-          :style="{ background: glassBg, borderColor: glassBorder }"
-          @click="selectedCity = city">
-          <p class="city-card-name" :style="{ color: textMain }">{{ city.name }}</p>
-          <p class="city-card-country" :style="{ color: textSub }">{{ city.country }}</p>
+        <div v-for="c in otherCities" :key="c.name" class="glass-card city-card"
+          :style="{ background: glassBg, borderColor: glassBorder }" @click="selectCity(c)">
+          <p class="city-card-name" :style="{ color: textMain }">{{ c.name }}</p>
+          <p class="city-card-country" :style="{ color: textSub }">{{ c.country }}</p>
           <div class="city-card-bottom">
-            <span class="city-card-temp" :style="{ color: textMain }">{{ city.temp }}°</span>
-            <span class="city-card-icon">{{ weatherTypes[city.weather]?.icon }}</span>
+            <span class="city-card-temp" :style="{ color: textMain }">{{ c.temp }}°</span>
+            <span class="city-card-icon">{{ weatherTypes[c.weather]?.icon }}</span>
           </div>
         </div>
       </div>
@@ -88,32 +86,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useWeather } from '../composables/useWeather'
-
-// definePageMeta({
-    
-// })({ layout: 'default' })
-
-const { selectedCity, weatherTypes, cities } = useWeather()
+const { city, weatherTypes, cities, fetchCity, isLoading } = useWeather()
 
 const searchText = ref('')
 const showSearch = ref(false)
 
-const isLight = computed(() => ['sunny', 'partlyCloudy'].includes(selectedCity.value.weather))
+onMounted(async () => {
+  await fetchCity('Abidjan')
+})
+
+const isLight = computed(() => ['sunny', 'partlyCloudy'].includes(city.value.weather))
 const textMain     = computed(() => isLight.value ? 'rgba(0,0,0,0.85)'       : 'rgba(255,255,255,0.95)')
 const textSub      = computed(() => isLight.value ? 'rgba(0,0,0,0.5)'        : 'rgba(255,255,255,0.6)')
 const glassBg      = computed(() => isLight.value ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)')
 const glassBorder  = computed(() => isLight.value ? 'rgba(255,255,255,0.5)'  : 'rgba(255,255,255,0.15)')
 const glassBgSolid = computed(() => isLight.value ? 'rgba(255,255,255,0.5)'  : 'rgba(255,255,255,0.12)')
 
-const currentWeather = computed(() => weatherTypes[selectedCity.value.weather] ?? weatherTypes.sunny)
+const defaultWeather = { label: 'Ensoleillé', icon: '☀️', bg: '' }
+const currentWeather = computed(() => weatherTypes[city.value.weather] ?? defaultWeather)
 
 const quickInfos = computed(() => [
-  { label: 'Humidité',  value: selectedCity.value.humidity + '%',  icon: '💧' },
-  { label: 'Vent',      value: selectedCity.value.wind + ' km/h',  icon: '🌬️' },
-  { label: 'UV Index',  value: selectedCity.value.uv + '/11',      icon: '☀️' },
-  { label: 'Condition', value: currentWeather.value.label,         icon: currentWeather.value.icon },
+  { label: 'Humidité',  value: city.value.humidity + '%',       icon: '💧' },
+  { label: 'Vent',      value: city.value.wind + ' km/h',       icon: '🌬️' },
+  { label: 'UV Index',  value: city.value.uv + '/11',           icon: '☀️' },
+  { label: 'Condition', value: currentWeather.value.label,      icon: currentWeather.value.icon },
 ])
 
 const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -129,10 +125,18 @@ const filteredCities = computed(() =>
     : cities
 )
 
-const otherCities = computed(() => cities.filter(c => c.name !== selectedCity.value.name))
+const showApiSearch = computed(() =>
+  searchText.value.length > 2 && filteredCities.value.length === 0
+)
 
-const selectCity = (city: typeof cities[0]) => {
-  selectedCity.value = city
+const otherCities = computed(() => cities.filter(c => c.name !== city.value.name))
+
+const selectCity = async (c: typeof cities[0] | string) => {
+  if (typeof c === 'string') {
+    await fetchCity(c)
+  } else {
+    await fetchCity(c.name)
+  }
   searchText.value = ''
   showSearch.value = false
 }
@@ -143,6 +147,14 @@ const selectCity = (city: typeof cities[0]) => {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 40px;
+}
+
+.loader {
+  text-align: center;
+  padding: 40px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  opacity: 0.6;
 }
 
 .search-wrapper { padding: 32px 0 16px; }
@@ -192,6 +204,7 @@ const selectCity = (city: typeof cities[0]) => {
 .search-item:hover { background: rgba(255,255,255,0.1); }
 .search-city { font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; }
 .search-country { font-size: 12px; font-family: 'DM Sans', sans-serif; }
+.search-api { background: rgba(255, 140, 0, 0.1); }
 
 .main-weather {
   display: grid;

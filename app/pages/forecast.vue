@@ -3,7 +3,7 @@
 
     <div class="forecast-header">
       <h2 class="forecast-title" :style="{ color: textMain }">Prévisions 7 jours</h2>
-      <p class="forecast-subtitle" :style="{ color: textSub }">{{ selectedCity.name }}, {{ selectedCity.country }}</p>
+      <p class="forecast-subtitle" :style="{ color: textSub }">{{ city.name }}, {{ city.country }}</p>
     </div>
 
     <div class="forecast-list">
@@ -17,18 +17,18 @@
           <p class="day-name" :style="{ color: textMain }">{{ day }}</p>
         </div>
 
-        <span class="forecast-icon">{{ weatherTypes[selectedCity.forecastW[i]]?.icon }}</span>
+        <span class="forecast-icon">{{ weatherTypes[city.forecastW[i] ?? 'sunny']?.icon }}</span>
 
         <p class="forecast-condition" :style="{ color: textSub }">
-          {{ weatherTypes[selectedCity.forecastW[i]]?.label }}
+          {{ weatherTypes[city.forecastW[i] ?? 'sunny']?.label }}
         </p>
 
         <div class="forecast-temps">
-          <span class="temp-min" :style="{ color: textSub }">{{ tempMins[i] }}°</span>
+          <span class="temp-min" :style="{ color: textSub }">{{ tempMins[i] ?? '—' }}°</span>
           <div class="temp-bar">
-            <div class="temp-bar-fill" :style="{ right: (100 - (selectedCity.forecast[i] / 40) * 100) + '%' }"></div>
+            <div class="temp-bar-fill" :style="{ right: (100 - ((city.forecast[i] ?? 0) / 40) * 100) + '%' }"></div>
           </div>
-          <span class="temp-max" :style="{ color: textMain }">{{ selectedCity.forecast[i] }}°</span>
+          <span class="temp-max" :style="{ color: textMain }">{{ city.forecast[i] ?? '—' }}°</span>
         </div>
 
       </div>
@@ -38,9 +38,13 @@
 </template>
 
 <script setup lang="ts">
-const { selectedCity, weatherTypes } = useWeather()
+const { city, weatherTypes, fetchCity } = useWeather()
 
-const isLight = computed(() => ['sunny', 'partlyCloudy'].includes(selectedCity.value.weather))
+onMounted(async () => {
+  await fetchCity(city.value.name)
+})
+
+const isLight = computed(() => ['sunny', 'partlyCloudy'].includes(city.value.weather))
 const textMain    = computed(() => isLight.value ? 'rgba(0,0,0,0.85)'       : 'rgba(255,255,255,0.95)')
 const textSub     = computed(() => isLight.value ? 'rgba(0,0,0,0.5)'        : 'rgba(255,255,255,0.6)')
 const glassBg     = computed(() => isLight.value ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)')
@@ -51,7 +55,9 @@ const today = new Date().getDay()
 const nextDays = Array.from({ length: 7 }, (_, i) => days[(today + i + 1) % 7])
 
 const tempMins = computed(() =>
-  selectedCity.value.forecast.map(t => t - Math.round(Math.random() * 4 + 2))
+  city.value.forecastMin?.length
+    ? city.value.forecastMin
+    : city.value.forecast.map((t: number) => t - 4)
 )
 </script>
 
@@ -91,7 +97,6 @@ const tempMins = computed(() =>
 
 .forecast-day { width: 60px; }
 .day-name { font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif; margin: 0; }
-
 .forecast-icon { font-size: 28px; }
 
 .forecast-condition {
@@ -102,12 +107,7 @@ const tempMins = computed(() =>
   text-align: center;
 }
 
-.forecast-temps {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.forecast-temps { display: flex; align-items: center; gap: 8px; }
 .temp-min { font-size: 13px; font-family: 'DM Sans', sans-serif; }
 .temp-max { font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
 

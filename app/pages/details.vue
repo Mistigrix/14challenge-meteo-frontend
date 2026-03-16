@@ -2,8 +2,8 @@
   <div class="details-page">
 
     <div class="details-header">
-      <p class="details-country" :style="{ color: textSub }">{{ selectedCity.country }}</p>
-      <h2 class="details-city" :style="{ color: textMain }">{{ selectedCity.name }}</h2>
+      <p class="details-country" :style="{ color: textSub }">{{ city.country }}</p>
+      <h2 class="details-city" :style="{ color: textMain }">{{ city.name }}</h2>
     </div>
 
     <div class="details-grid-top">
@@ -21,11 +21,11 @@
     <div class="details-grid-bottom">
       <div class="glass-card uv-card" :style="{ background: glassBg, borderColor: glassBorder }">
         <p class="stat-label" :style="{ color: textSub }">UV Index</p>
-        <p class="stat-value" :style="{ color: selectedCity.uv >= 8 ? '#FF6B6B' : textMain }">
-          {{ selectedCity.uv }} / 11
+        <p class="stat-value" :style="{ color: city.uv >= 8 ? '#FF6B6B' : textMain }">
+          {{ city.uv }} / 11
         </p>
         <p class="stat-sub" :style="{ color: textSub }">
-          {{ selectedCity.uv >= 8 ? 'Très élevé — Protection requise' : 'Modéré' }}
+          {{ city.uv >= 8 ? 'Très élevé — Protection requise' : 'Modéré' }}
         </p>
       </div>
 
@@ -45,7 +45,7 @@
             class="hourly-bar"
             :style="{
               height: bar.height + '%',
-              background: bar.temp >= selectedCity.temp ? 'rgba(255,140,0,0.5)' : 'rgba(255,255,255,0.2)'
+              background: bar.temp >= city.temp ? 'rgba(255,140,0,0.5)' : 'rgba(255,255,255,0.2)'
             }">
           </div>
           <span class="hourly-time" :style="{ color: textSub }">{{ bar.time }}</span>
@@ -57,43 +57,46 @@
 </template>
 
 <script setup lang="ts">
-const { selectedCity, weatherTypes } = useWeather()
+const { city, weatherTypes, fetchCity } = useWeather()
 
-const isLight = computed(() => ['sunny', 'partlyCloudy'].includes(selectedCity.value.weather))
+onMounted(async () => {
+  await fetchCity(city.value.name)
+})
+
+const isLight = computed(() => ['sunny', 'partlyCloudy'].includes(city.value.weather))
 const textMain    = computed(() => isLight.value ? 'rgba(0,0,0,0.85)'       : 'rgba(255,255,255,0.95)')
 const textSub     = computed(() => isLight.value ? 'rgba(0,0,0,0.5)'        : 'rgba(255,255,255,0.6)')
 const glassBg     = computed(() => isLight.value ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)')
 const glassBorder = computed(() => isLight.value ? 'rgba(255,255,255,0.5)'  : 'rgba(255,255,255,0.15)')
 const accentColor = '#FF6B6B'
 
-const currentWeather = computed(() =>
-  weatherTypes[selectedCity.value.weather] ?? weatherTypes.sunny
-)
+const defaultWeather = { label: 'Ensoleillé', icon: '☀️', bg: '' }
+const currentWeather = computed(() => weatherTypes[city.value.weather] ?? defaultWeather)
 
 const topCards = computed(() => [
   {
     label: 'Température',
-    value: selectedCity.value.temp + '°C',
-    sub: 'Ressenti ' + selectedCity.value.feels + '°C',
+    value: city.value.temp + '°C',
+    sub: 'Ressenti ' + city.value.feels + '°C',
     colored: false
   },
   {
     label: 'Humidité',
-    value: selectedCity.value.humidity + '%',
-    sub: selectedCity.value.humidity > 70 ? 'Humide' : 'Modéré',
+    value: city.value.humidity + '%',
+    sub: city.value.humidity > 70 ? 'Humide' : 'Modéré',
     colored: false
   },
   {
     label: 'Vent',
-    value: selectedCity.value.wind + ' km/h',
-    sub: selectedCity.value.wind > 20 ? 'Fort' : 'Modéré',
+    value: city.value.wind + ' km/h',
+    sub: city.value.wind > 20 ? 'Fort' : 'Modéré',
     colored: false
   },
 ])
 
 const hourlyData = computed(() => {
   return Array.from({ length: 24 }, (_, i) => {
-    const base = selectedCity.value.temp
+    const base = city.value.temp
     const variation = Math.sin((i - 6) * Math.PI / 12) * 5
     const temp = Math.round(base + variation - 3)
     const maxH = base + 5
@@ -142,26 +145,9 @@ const hourlyData = computed(() => {
   transition: all 0.3s;
 }
 
-.stat-label {
-  font-size: 11px;
-  font-family: 'DM Sans', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 0 0 12px;
-}
-
-.stat-value {
-  font-size: 36px;
-  font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
-  margin: 0 0 4px;
-}
-
-.stat-sub {
-  font-size: 12px;
-  font-family: 'DM Sans', sans-serif;
-  margin: 0;
-}
+.stat-label { font-size: 11px; font-family: 'DM Sans', sans-serif; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px; }
+.stat-value { font-size: 36px; font-weight: 700; font-family: 'DM Sans', sans-serif; margin: 0 0 4px; }
+.stat-sub { font-size: 12px; font-family: 'DM Sans', sans-serif; margin: 0; }
 
 .uv-card { text-align: center; }
 .condition-card { text-align: center; }
@@ -188,22 +174,9 @@ const hourlyData = computed(() => {
   justify-content: flex-end;
 }
 
-.hourly-temp {
-  font-size: 9px;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.hourly-bar {
-  width: 100%;
-  border-radius: 4px 4px 0 0;
-  transition: all 0.3s;
-  min-height: 4px;
-}
-
-.hourly-time {
-  font-size: 8px;
-  font-family: 'DM Sans', sans-serif;
-}
+.hourly-temp { font-size: 9px; font-family: 'DM Sans', sans-serif; }
+.hourly-bar { width: 100%; border-radius: 4px 4px 0 0; transition: all 0.3s; min-height: 4px; }
+.hourly-time { font-size: 8px; font-family: 'DM Sans', sans-serif; }
 
 @media (max-width: 768px) {
   .details-page { padding: 24px 16px; }

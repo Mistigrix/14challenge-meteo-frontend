@@ -26,9 +26,9 @@ import { computed } from 'vue';
 import { useWeather } from '../composables/useWeather';
 
 
-const { selectedCity, weatherTypes } = useWeather()
+const { city, weatherTypes } = useWeather()
 const weatherBg = computed(() => {
-  return weatherTypes[selectedCity.value.weather]?.bg ?? 'linear-gradient(135deg, #FF8C00, #FFB347)'
+  return weatherTypes[city.value.weather]?.bg ?? 'linear-gradient(135deg, #FF8C00, #FFB347)'
 })
 </script>
 
